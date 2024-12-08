@@ -1,1 +1,1 @@
-# Fractional-nonlinear-Schr-dinger-equation
+# Fractional-nonlinear-Schrödinger-equation
