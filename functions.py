@@ -19,7 +19,7 @@ def wavelet(t,duration_s,frequency_Hz):
     return wl
 
 # Defining Functions to simulate a Gaussian pulse
-# # Function returns pulse power or spectrum PSD
+# Function returns pulse power or spectrum PSD
 def getPower(amplitude):
     return np.abs(amplitude) ** 2
 
@@ -66,35 +66,32 @@ def FWHM(X, Y):
     return np.sum(l) * deltax
 
 def SecondTimeDerivative(sim,pulseVector):
-    ddy = np.zeros(pulseVector.shape, dtype=np.complex_)
+    ddy = np.zeros(pulseVector.shape, dtype=np.complex128)
     ddy[1:-1] = pulseVector[2:] -2*pulseVector[1:-1] + pulseVector[:-2] # boundary nodes are not included
     ddy[0] = 2*pulseVector[0] - 5*pulseVector[1] + 4*pulseVector[2] - pulseVector[3] # y'' at left boundary node (forward difference)
     ddy[-1] = -pulseVector[-4] + 4*pulseVector[-3] - 5*pulseVector[-2] + 2*pulseVector[-1] # y'' at right boundary node (backward difference)
     return ddy / (sim.time_step ** 2) 
 
-def FiberLoss_term(fiber,pulseVector):
-    return - fiber.alpha_dB_per_m / 2 * pulseVector
-
 def GVD_term(fiber,sim,pulseVector):
-    return 1j * fiber.beta2 / 2 * SecondTimeDerivative(sim,pulseVector)
+    return 1j * (fiber.length / fiber.dispersion_length) * (1 / 2) * SecondTimeDerivative(sim,pulseVector)
 
-def SPM_term(fiber,pulseVector):
-    return - 1j * fiber.gamma * getPower(pulseVector) * pulseVector
+def SPM_term(fiber,zeta,pulseVector):
+    return - 1j * (fiber.length / fiber.nonlinear_length) * np.exp(-fiber.alpha_dB_per_m * fiber.length * zeta) * getPower(pulseVector) * pulseVector
 
-def RightHandSide(fiber,sim,pulseVector):
-    return GVD_term(fiber,sim,pulseVector) + FiberLoss_term(fiber,pulseVector) + SPM_term(fiber,pulseVector)
+def RightHandSide(fiber,sim,zeta,pulseVector):
+    return GVD_term(fiber,sim,pulseVector) + SPM_term(fiber,zeta,pulseVector)
 
-def Euler(fiber,sim,pulseVector):
-    return pulseVector + fiber.dz * RightHandSide(fiber,sim,pulseVector)
+def Euler(fiber,sim,zeta,pulseVector):
+    return pulseVector + fiber.dz * RightHandSide(fiber,sim,zeta,pulseVector)
 
-def RK4(fiber,sim,pulseVector):
-    k1 = RightHandSide(fiber,sim,pulseVector)
-    k2 = RightHandSide(fiber,sim,fiber.dz/2*k1 + pulseVector)
-    k3 = RightHandSide(fiber,sim,fiber.dz/2*k2 + pulseVector)
-    k4 = RightHandSide(fiber,sim,fiber.dz*k3 + pulseVector)
+def RK4(fiber,sim,zeta,pulseVector):
+    k1 = RightHandSide(fiber,sim,zeta,pulseVector)
+    k2 = RightHandSide(fiber,sim,zeta,fiber.dz/2*k1 + pulseVector)
+    k3 = RightHandSide(fiber,sim,zeta,fiber.dz/2*k2 + pulseVector)
+    k4 = RightHandSide(fiber,sim,zeta,fiber.dz*k3 + pulseVector)
     return pulseVector + fiber.dz/6 * (k1 + 2*k2 + 2*k3 + k4)
 
-def EFORK3(fiber,sim,pulseVector):
+def EFORK3(fiber,sim,zeta,pulseVector):
     # Precompute constants
     w1 = (8 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) - (6 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) + (gamma(1 + 2*alpha) * gamma(1 + 3*alpha) * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (gamma(1 + 3*alpha))
     w2 = 2 * gamma(1 + alpha)**2 * (4 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)) * gamma(1 + 2*alpha) * gamma(1 + 3*alpha)
@@ -104,13 +101,13 @@ def EFORK3(fiber,sim,pulseVector):
     a22 = -gamma(1 + 2*alpha)**4 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha))
 
     # We apply the Runge-Kutta method (modified for fractional derivatives)
-    K1 = (fiber.dz)**alpha * RightHandSide(fiber,sim, pulseVector)
-    K2 = (fiber.dz)**alpha * RightHandSide(fiber,sim, pulseVector + a11 * K1)
-    K3 = (fiber.dz)**alpha * RightHandSide(fiber,sim, pulseVector + a22 * K2 + a21 * K1)
+    K1 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta,pulseVector)
+    K2 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta,pulseVector + a11 * K1)
+    K3 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta,pulseVector + a22 * K2 + a21 * K1)
 
     return pulseVector + w1 * K1 + w2 * K2 + w3 * K3
 
-# Defining the Fractional Euler Method's function
+# Defining the Simulation function
 def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
     # Initialize pulseMatrix array to store pulse and spectrum throughout fiber
     pulseMatrix=np.zeros((fiber.nsteps, sim.number_of_points),dtype=np.complex128)
@@ -120,7 +117,7 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
     #pulseMatrix[:,-1] = 0
 
     # initial conditions
-    pulseMatrix[0,:] = pulse / sim.amplitude
+    pulseMatrix[0,:] = pulse
     
     # Initialize spectrumMatrix array to store spectrum throughout fiber
     spectrumMatrix=np.copy(pulseMatrix)
@@ -128,12 +125,13 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
 
     # looping through space grid
     for m in range(fiber.nsteps-1):
+        zeta = fiber.dz * m
         if method == 'Euler' :
-            pulseMatrix[m+1,:] = Euler(fiber,sim,pulseMatrix[m,:])
+            pulseMatrix[m+1,:] = Euler(fiber,sim,zeta,pulseMatrix[m,:])
         elif method == 'RK4' :
-            pulseMatrix[m+1,:] = RK4(fiber,sim,pulseMatrix[m,:])
+            pulseMatrix[m+1,:] = RK4(fiber,sim,zeta,pulseMatrix[m,:])
         elif method == 'EFORK3' :
-            pulseMatrix[m+1,:] = EFORK3(fiber,sim,pulseMatrix[m,:])
+            pulseMatrix[m+1,:] = EFORK3(fiber,sim,zeta,pulseMatrix[m,:])
         else :
             raise Exception(f'Unknown method {method}')
         spectrumMatrix[m+1,:] = getSpectrumFromPulse(sim.t,sim.f,pulseMatrix[m+1,:])
@@ -148,41 +146,41 @@ def savePlot(fileName):
         os.makedirs('results/')
     plt.savefig('results/%s.png'%(fileName))
 
-def plotFirstAndLastPulse(matrix, plot:PLOT_config):
-  t=plot.t
+def plotFirstAndLastPulse(matrix, sim:SIM_config):
+  t=sim.t
   plt.figure()
   plt.title("Initial pulse and final pulse")
   power = getPower(matrix[0,:])
   maximum_power=np.max(power)
   plt.plot(t,getPower(matrix[0,:])/maximum_power,label="Initial Pulse")
   plt.plot(t,getPower(matrix[-1,:])/maximum_power,label="Final Pulse")
-  plt.axis([-5*plot.duration,5*plot.duration,0,1])
-  plt.xlabel("Time " + timedictionary[plotunit])
+  plt.axis([-5*sim.duration,5*sim.duration,0,1])
+  plt.xlabel("Time [arbitrary unit]")
   plt.ylabel("Power [arbitrary unit]")
   plt.legend()
   savePlot('initial and final pulse')
   plt.show()
 
-def plotPulseMatrix2D(matrix,fiber:Fiber_config,plot:PLOT_config):
+def plotPulseMatrix2D(matrix,fiber:Fiber_config,sim:SIM_config):
   fig, ax = plt.subplots()
   ax.set_title('Distance-time pulse evolution (a.u.)')
-  t=plot.t
+  t=sim.t
   z = fiber.zlocs_array 
   T, Z = np.meshgrid(t, z)
   P=getPower(matrix[:,:])/np.max(getPower(matrix[:,:]))
   P[P<1e-100]=1e-100
   surf=ax.contourf(T, Z, P,levels=40)
-  ax.set_xlabel('Time ' + timedictionary[plotunit])
-  ax.set_ylabel('Distance ' + distancedictionary[plotunit])
+  ax.set_xlabel('Time [arbitrary unit]')
+  ax.set_ylabel('Distance [arbitrary unit]')
   cbar=fig.colorbar(surf, ax=ax)
-  ax.set_xlim(left=-5*plot.duration)
-  ax.set_xlim(right=5*plot.duration)
+  ax.set_xlim(left=-3*sim.duration)
+  ax.set_xlim(right=3*sim.duration)
   savePlot('distance-time pulse evolution')
   plt.show()
 
-def plotFirstAndLastSpectrum(matrix,plot:PLOT_config,FWHM_frequency_final):
-    f=plot.f_rel
-    frequency0=plot.frequency0
+def plotFirstAndLastSpectrum(matrix,sim:SIM_config,FWHM_frequency_final):
+    f=sim.f_rel
+    frequency0=sim.frequency0
     plt.figure()
     plt.title("Initial spectrum and final spectrum")
     power = getPower(matrix[0,:])
@@ -190,39 +188,38 @@ def plotFirstAndLastSpectrum(matrix,plot:PLOT_config,FWHM_frequency_final):
     plt.plot(f,getPower(matrix[0,:])/maximum_power,label="Initial Spectrum")
     plt.plot(f,getPower(matrix[-1,:])/maximum_power,label="Final Spectrum")
     plt.axis([frequency0-FWHM_frequency_final,frequency0+FWHM_frequency_final,0,1])
-    plt.xlabel("Frequency " + frequencydictionary[plotunit])
+    plt.xlabel("Frequency [arbitrary unit]")
     plt.ylabel("Power spectral density [arbitrary unit]")
     plt.legend()
     savePlot('initial and final spectrum')
     plt.show()
 
-def plotPSDWavelength(matrix,plot:PLOT_config):
-    wavelength=plot.wavelength
-    wavelength0=plot.wavelength0
-    speed_of_light=plot.speed_of_light
+def plotPSDWavelength(matrix,sim:SIM_config):
+    wavelength=sim.wavelength
+    wavelength0=sim.wavelength0
     power=getPower(matrix[0,:])*2*pi*speed_of_light/(wavelength**2)
     maximum_power=np.max(power)
     plt.plot(wavelength,(getPower(matrix[0,:])*2*pi*speed_of_light/(wavelength**2))/maximum_power,label="Initial Spectrum")
     plt.plot(wavelength,(getPower(matrix[-1,:])*2*pi*speed_of_light/wavelength**2)/maximum_power,label="Final Spectrum")
     plt.title('Power spectral density as function of the wavelength')
-    plt.axis([0,wavelength0*70,0,1])
-    plt.xlabel("Wavelength " + wavelengthdictionary[plotunit])
+    #plt.axis([0,sim.wavelength0*70,0,1])
+    plt.xlabel("Wavelength [arbitrary unit]")
     plt.ylabel("Power spectral density [arbitrary unit]")
     plt.legend()
     savePlot('power spectral density in function of wavelength')
     plt.show()
 
-def plotSpectrumMatrix2D(matrix,fiber:Fiber_config,plot:PLOT_config,FWHM_frequency_final):
-  frequency0=plot.frequency0
+def plotSpectrumMatrix2D(matrix,fiber:Fiber_config,sim:SIM_config,FWHM_frequency_final):
+  frequency0=sim.frequency0
   fig, ax = plt.subplots()
   ax.set_title('Distance-spectrum evolution')
-  f=plot.f_rel
+  f=sim.f_rel
   z = fiber.zlocs_array
   F, Z = np.meshgrid(f, z)
   Pf=getPower(matrix[:,:])/np.max(getPower(matrix[:,:]))
   Pf[Pf<1e-100]=1e-100
   surf=ax.contourf(F, Z, Pf,levels=40)
-  ax.set_xlabel('Frequency ' + frequencydictionary[plotunit])
+  ax.set_xlabel('Frequency [arbitrary unit]')
   ax.set_ylabel('Distance [arbitrary unit]')
   ax.set_xlim(left=frequency0 - FWHM_frequency_final)
   ax.set_xlim(right=frequency0 + FWHM_frequency_final)
@@ -230,17 +227,17 @@ def plotSpectrumMatrix2D(matrix,fiber:Fiber_config,plot:PLOT_config,FWHM_frequen
   savePlot('distance-spectrum evolution') 
   plt.show()
 
-def plotSpectrogram(plot:PLOT_config, pulse, nrange_pulse, nrange_spectrum, time_resolution:float, label=None):
-    t=plot.t
-    fc=plot.frequency0
-    f = plot.f_rel
-    Nmin_pulse = np.max([int(plot.number_of_points / 2 - nrange_pulse), 0])
-    Nmax_pulse = np.min([int(plot.number_of_points / 2 + nrange_pulse),plot.number_of_points - 1,])
-    Nmin_spectrum = np.max([int(plot.number_of_points / 2 - nrange_spectrum), 0])
-    Nmax_spectrum = np.min([int(plot.number_of_points / 2 + nrange_spectrum),plot.number_of_points - 1,])
-    t=t=plot.t[Nmin_pulse:Nmax_pulse]
+def plotSpectrogram(sim:SIM_config, pulse, nrange_pulse, nrange_spectrum, time_resolution:float, label=None):
+    t=sim.t
+    fc=sim.frequency0
+    f = sim.f_rel
+    Nmin_pulse = np.max([int(sim.number_of_points / 2 - nrange_pulse), 0])
+    Nmax_pulse = np.min([int(sim.number_of_points / 2 + nrange_pulse),sim.number_of_points - 1,])
+    Nmin_spectrum = np.max([int(sim.number_of_points / 2 - nrange_spectrum), 0])
+    Nmax_spectrum = np.min([int(sim.number_of_points / 2 + nrange_spectrum),sim.number_of_points - 1,])
+    t=t=sim.t[Nmin_pulse:Nmax_pulse]
     pulse = pulse[Nmin_pulse:Nmax_pulse]
-    f_rel = plot.f_rel[Nmin_spectrum:Nmax_spectrum]
+    f_rel = sim.f_rel[Nmin_spectrum:Nmax_spectrum]
     result_matrix = np.zeros((len(f_rel),len(t)))*1j
     for idx, f_Hz in enumerate(f_rel):
         current_wavelet = lambda time: wavelet(time,time_resolution,f_Hz)
@@ -251,8 +248,8 @@ def plotSpectrogram(plot:PLOT_config, pulse, nrange_pulse, nrange_spectrum, time
     ax.set_title('Wavelet transform (spectrogram) of the %s pulse'%(label))
     T, F = np.meshgrid(t, f[Nmin_spectrum:Nmax_spectrum])
     surf = ax.contourf(T, F, Z , levels=40)
-    ax.set_xlabel(f"Time " + timedictionary[plotunit])
-    ax.set_ylabel(f"Frequency " + frequencydictionary[plotunit])
+    ax.set_xlabel(f"Time [arbitrary unit]")
+    ax.set_ylabel(f"Frequency [arbitrary unit]")
     tkw = dict(size=4, width=1.5)
     ax.yaxis.label.set_color('b')
     n_ticks = len(ax.get_yticklabels())-2
