@@ -91,6 +91,14 @@ def RK4(fiber,sim,zeta,pulseVector):
     k4 = RightHandSide(fiber,sim,zeta,fiber.dz*k3 + pulseVector)
     return pulseVector + fiber.dz/6 * (k1 + 2*k2 + 2*k3 + k4)
 
+def L1_Schema(fiber,sim,zeta,pulseVector):
+    h_alpha = (fiber.dz ** alpha) / gamma(alpha + 1)
+    i = int(zeta / fiber.dz)
+    second_term = 0
+    for j in range(i):
+        second_term = second_term + ((i - j + 1)**alpha - (i - j)**alpha) * RightHandSide(fiber,sim,zeta,pulseVector)
+    return pulseVector + h_alpha * second_term
+
 def EFORK3(fiber,sim,zeta,pulseVector):
     # Precompute constants
     w1 = (8 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) - (6 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) + (gamma(1 + 2*alpha) * gamma(1 + 3*alpha) * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (gamma(1 + 3*alpha))
@@ -132,6 +140,8 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
             pulseMatrix[m+1,:] = RK4(fiber,sim,zeta,pulseMatrix[m,:])
         elif method == 'EFORK3' :
             pulseMatrix[m+1,:] = EFORK3(fiber,sim,zeta,pulseMatrix[m,:])
+        elif method == 'L1' :
+            pulseMatrix[m+1,:] = L1_Schema(fiber,sim,zeta,pulseMatrix[m,:])
         else :
             raise Exception(f'Unknown method {method}')
         spectrumMatrix[m+1,:] = getSpectrumFromPulse(sim.t,sim.f,pulseMatrix[m+1,:])
