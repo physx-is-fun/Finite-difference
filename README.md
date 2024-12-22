@@ -1,4 +1,4 @@
-# Fractional-nonlinear-Schrödinger-equation
+# Laser pulse propagation in optical fiber
 
 This notebook shows a simple, scalar implementation of the finite difference <a href="1">[1]</a> for solving the Nonlinear Schrödinger Equation <a href="2">[2]</a>.
 
