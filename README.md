@@ -1,10 +1,10 @@
 # Laser pulse propagation in optical fiber
 
-This notebook shows a simple, scalar implementation of the finite difference <a href="1">[1]</a> for solving the Nonlinear Schrödinger Equation <a href="2">[2]</a>.
+This notebook shows a simple, scalar implementation of the finite difference <a href="#1">[1]</a> for solving the Nonlinear Schrödinger Equation <a href="#2">[2]</a>.
 
 $\frac{\partial A}{\partial z}=-\frac{\alpha}{2}A+i \frac{\beta_2}{2} \frac{\partial^2 A}{\partial t^2}-i \gamma(|A|^2A)$
 
-This nonlinear partial differential equation models how the envelope and phase of light pulse changes when propagating through a single mode optical fiber, when taking power attenuation ($\alpha$), group velocity dispersion ($\beta_2$)and waveguide nonlinearity ($\gamma$) causing self-phase modulation (SPM) into account. A is the slowly varying amplitude of the pulse envelope and t is measured in a frame of reference moving with the pulse at the group velocity $v_g$. The nonlinear Schrödinger equation (for optics) can be derived from the wave equation. However we can choose between two (Fourier transform) notations. The derivation with the negative one can be found in Ursula Keller's book <a href="1">[3]</a>. I used this, because the scipy library uses the negative convention for the DFT. Depending on the initial width $T_0$ and the peak power $P_0$ of the incident pulse, either dispersive or non linear
+This nonlinear partial differential equation models how the envelope and phase of light pulse changes when propagating through a single mode optical fiber, when taking power attenuation ($\alpha$), group velocity dispersion ($\beta_2$)and waveguide nonlinearity ($\gamma$) causing self-phase modulation (SPM) into account. A is the slowly varying amplitude of the pulse envelope and t is measured in a frame of reference moving with the pulse at the group velocity $v_g$. The nonlinear Schrödinger equation (for optics) can be derived from the wave equation. However we can choose between two (Fourier transform) notations. The derivation with the negative one can be found in Ursula Keller's book <a href="#3">[3]</a>. I used this, because the scipy library uses the negative convention for the DFT. Depending on the initial width $T_0$ and the peak power $P_0$ of the incident pulse, either dispersive or non linear
 effects may dominate along the fiber. It is useful to introduce two length scales, known as the dispersion length $L_D$ and the nonlinear length $L_{NL}$. Let us consider a time scale normalized to the input width $T_0$ as:
 
 $\tau=\frac{t}{T_0}$
@@ -27,7 +27,7 @@ $L_D=\frac{T_0 ^ 2}{|\beta_2|}$
 
 $L_{NL}=\frac{1}{\gamma_0 P_0}$
 
-The concept behind this normalization process is to exclude any kind of overflow error that may occur during solving the PDE with finite difference method. The derivation of the dimensionless transformation for the nonlinear Schrödinger equation can be found here <a href="4">[4]</a>. The plotting functions originally came from here <a href="5">[5]</a>. The 3-Stage Explicit Fractional Order Runge-Kutta Method algorithm in Mathematica can be found here <a href="6">[6]</a>.
+The concept behind this normalization process is to exclude any kind of overflow error that may occur during solving the PDE with finite difference method. The derivation of the dimensionless transformation for the nonlinear Schrödinger equation can be found here <a href="#4">[4]</a>. The plotting functions originally came from here <a href="#5">[5]</a>. The 3-Stage Explicit Fractional Order Runge-Kutta Method algorithm in Mathematica can be found here <a href="#6">[6]</a>.
 
 ## Possible drawback of this implementation
 
