@@ -91,30 +91,6 @@ def RK4(fiber,sim,zeta,pulseVector):
     k4 = RightHandSide(fiber,sim,zeta,fiber.dz*k3 + pulseVector)
     return pulseVector + fiber.dz/6 * (k1 + 2*k2 + 2*k3 + k4)
 
-def L1_Schema(fiber,sim,zeta,pulseVector):
-    h_alpha = (fiber.dz ** alpha) / gamma(alpha + 1)
-    i = int(zeta / fiber.dz)
-    second_term = 0
-    for j in range(i):
-        second_term = second_term + ((i - j + 1)**alpha - (i - j)**alpha) * RightHandSide(fiber,sim,zeta,pulseVector)
-    return pulseVector + h_alpha * second_term
-
-def EFORK3(fiber,sim,zeta,pulseVector):
-    # Precompute constants
-    w1 = (8 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) - (6 * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (3 * gamma(1 + 3*alpha)) + (gamma(1 + 2*alpha) * gamma(1 + 3*alpha) * gamma(1 + alpha) * gamma(1 + 2*alpha)) / (gamma(1 + 3*alpha))
-    w2 = 2 * gamma(1 + alpha)**2 * (4 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)) * gamma(1 + 2*alpha) * gamma(1 + 3*alpha)
-    w3 = -8 * gamma(1 + alpha)**2 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha)) * gamma(1 + 2*alpha) * gamma(1 + 3*alpha)
-    a11 = 12 * gamma(alpha + 1)**2
-    a21 = gamma(1 + alpha)**2 * gamma(1 + 2*alpha) + 2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha) * 4 * gamma(1 + alpha)**2 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha))
-    a22 = -gamma(1 + 2*alpha)**4 * (2 * gamma(1 + 2*alpha)**2 - gamma(1 + 3*alpha))
-
-    # We apply the Runge-Kutta method (modified for fractional derivatives)
-    K1 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta,pulseVector)
-    K2 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta,pulseVector + a11 * K1)
-    K3 = (fiber.dz)**alpha * RightHandSide(fiber,sim,zeta,pulseVector + a22 * K2 + a21 * K1)
-
-    return pulseVector + w1 * K1 + w2 * K2 + w3 * K3
-
 # Defining the Simulation function
 def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
     # Initialize pulseMatrix array to store pulse and spectrum throughout fiber
@@ -138,10 +114,6 @@ def Simulation(fiber:Fiber_config,sim:SIM_config,pulse,method):
             pulseMatrix[m+1,:] = Euler(fiber,sim,zeta,pulseMatrix[m,:])
         elif method == 'RK4' :
             pulseMatrix[m+1,:] = RK4(fiber,sim,zeta,pulseMatrix[m,:])
-        elif method == 'EFORK3' :
-            pulseMatrix[m+1,:] = EFORK3(fiber,sim,zeta,pulseMatrix[m,:])
-        elif method == 'L1' :
-            pulseMatrix[m+1,:] = L1_Schema(fiber,sim,zeta,pulseMatrix[m,:])
         else :
             raise Exception(f'Unknown method {method}')
         spectrumMatrix[m+1,:] = getSpectrumFromPulse(sim.t,sim.f,pulseMatrix[m+1,:])
@@ -202,21 +174,6 @@ def plotFirstAndLastSpectrum(matrix,sim:SIM_config,FWHM_frequency_final):
     plt.ylabel("Power spectral density [arbitrary unit]")
     plt.legend()
     savePlot('initial and final spectrum')
-    plt.show()
-
-def plotPSDWavelength(matrix,sim:SIM_config):
-    wavelength=sim.wavelength
-    wavelength0=sim.wavelength0
-    power=getPower(matrix[0,:])*2*pi*speed_of_light/(wavelength**2)
-    maximum_power=np.max(power)
-    plt.plot(wavelength,(getPower(matrix[0,:])*2*pi*speed_of_light/(wavelength**2))/maximum_power,label="Initial Spectrum")
-    plt.plot(wavelength,(getPower(matrix[-1,:])*2*pi*speed_of_light/wavelength**2)/maximum_power,label="Final Spectrum")
-    plt.title('Power spectral density as function of the wavelength')
-    #plt.axis([0,sim.wavelength0*70,0,1])
-    plt.xlabel("Wavelength [arbitrary unit]")
-    plt.ylabel("Power spectral density [arbitrary unit]")
-    plt.legend()
-    savePlot('power spectral density in function of wavelength')
     plt.show()
 
 def plotSpectrumMatrix2D(matrix,fiber:Fiber_config,sim:SIM_config,FWHM_frequency_final):

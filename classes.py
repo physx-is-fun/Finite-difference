@@ -18,11 +18,7 @@ class SIM_config:
         frequency0 = speed_of_light / wavelength0                                  # Dimensionless central frequency
         self.frequency0 = 1                                                        # Dimensionless frequency grid
         f_rel = f + 1                                                                                      
-        self.f_rel = f_rel                                            # Dimensionless relative frequency grid
-        #wavelength = speed_of_light / f                                                                            
-        #self.wavelength = wavelength                                              # Dimensionless wavelength grid
-        #wavelength_rel = wavelength + wavelength0                                                                   
-        #self.wavelength_rel = wavelength_rel                                      # Dimensionless relative wavelength grid
+        self.f_rel = f_rel                                                         # Dimensionless relative frequency grid
 
 # Class for holding info about the fiber
 class Fiber_config:
