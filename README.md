@@ -27,8 +27,7 @@ $L_D=\frac{T_0 ^ 2}{|\beta_2|}$
 
 $L_{NL}=\frac{1}{\gamma_0 P_0}$
 
-The concept behind this normalization process is to exclude any kind of overflow error that may occur during solving the PDE with finite difference method. The derivation of the dimensionless transformation for the nonlinear Schrödinger equation can be found here <a href="#4">[4]</a>. The plotting functions originally came from here <a href="#5">[5]</a>. The 3-Stage Explicit Fractional Order Runge-Kutta Method algorithm in Mathematica can be found here <a href="#6">[6]</a>.
-
+The concept behind this normalization process is to exclude any kind of overflow error that may occur during solving the PDE with finite difference method. The derivation of the dimensionless transformation for the nonlinear Schrödinger equation can be found here <a href="#4">[4]</a>. The plotting functions originally came from here <a href="#5">[5]</a>.
 ## Possible drawback of this implementation
 
  I did some observations when I ran the code with different conditions. The time grid is fine enough, when $N \ge 2^{12}$. When the N variable is below $2^{13}$, this works perfectly with the RK4 or Euler integrators. When the N variable is below $2^{7}$, the fractional integrator works perfectly.
@@ -40,4 +39,3 @@ The concept behind this normalization process is to exclude any kind of overflow
 <div id="3">[3] Keller, U. (2023). Ultrafast lasers: A comprehensive introduction to fundamental principles with practical applications. Springer International Publishing.</div>
 <div id="4">[4] Felice, D. (2016, December 1). A Study of a Nonlinear Schrödinger Equation for Optical Fibers. arxiv. https://arxiv.org/pdf/1612.00358</div>
 <div id="5">[5] Krarup, O. (n.d.). OLEKRARUP123/NLSE-vector-solver: Code for modelling the nonlinear Schrödinger equation for optical fiber pulse propagation. GitHub. https://github.com/OleKrarup123/NLSE-vector-solver</div>
-<div id="6">[6] Ghoreishi, F., Ghaffari, R., & Saad, N. (2023). Fractional order Runge–Kutta methods. Fractal and Fractional, 7(3), 245. https://doi.org/10.3390/fractalfract7030245</div>
